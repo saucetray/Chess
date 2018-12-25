@@ -11,29 +11,8 @@
 #include <sys/socket.h>
 #include <ncurses.h>
 
-int main() {
-    
-    int row, col;
 
-    initscr();
-    raw();
-
-    keypad(stdscr, TRUE);
-    noecho();
-    
-    getmaxyx(stdscr, row, col);
-    
-    if (row < 60 || col < 40) {
-        char* resize = "Your screen needs to be atleast 60x40. "
-                       "Press Enter to End";
-        mvprintw(row/2, (col-strlen(resize))/2, "%s", resize);
-        refresh();
-        getch();
-        endwin();
-        return 1;
-    }
-
-    char hostname[200];
+int host_query(int row, int col, char *hostname) {
     char *host = "Enter Hostname and Port:";
     char *welcome = "Welcome to Chess.";
     attron(A_BOLD);
@@ -48,8 +27,9 @@ int main() {
         lt[0] = letter;
         switch(letter) {
             case 127:
-                if (length != 0)
+                if (length != 0) {
                     hostname[length-1] = '\0';
+                }
                 break;
             default:
                 if (length < 199)
@@ -60,6 +40,36 @@ int main() {
         mvprintw(row/2, (col-strlen(host)-length)/2, "%s", host);
         printw("%s", hostname);
     }
+
+    return 0;
+}
+
+
+int main() {
+    
+    int row, col;
+
+    initscr();
+    raw();
+
+    keypad(stdscr, TRUE);
+    noecho();
+    
+    getmaxyx(stdscr, row, col);
+    
+    if (row < 40 || col < 40) {
+        char* resize = "Your screen needs to be atleast 40x40. "
+                       "Press Enter to End";
+        mvprintw(row/2, (col-strlen(resize))/2, "%s", resize);
+        refresh();
+        getch();
+        endwin();
+        return 1;
+    }
+
+    char hostname[200];
+    host_query(row, col, hostname);
+
     refresh();
     endwin();
     return 0;
