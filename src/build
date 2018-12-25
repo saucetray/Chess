@@ -1,0 +1,9 @@
+cd client
+
+make $1
+
+cd ../server
+
+make $1
+
+cd ..
