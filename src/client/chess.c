@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 #include <signal.h>
 #include <ncurses.h>
 
@@ -19,8 +21,20 @@
 #define ENTER_KEY 10
 #define DELETE_KEY 127
 
+#define NO_ERROR 0
 #define NO_RESPONSE 1
 #define NOT_CHESS 2
+
+#define HOST_EXISTS 0
+#define HOST_INVALID -1
+
+
+/// clear_row - clears the specified row
+/// row - the row numbers
+static inline void clear_row(int row) {
+    move(row, 0);
+    clrtoeol();
+}
 
 
 /// host_query - asks user for a hostname and port
@@ -28,22 +42,25 @@
 /// col - the columns of the terminal
 /// error - error code if failure to connect/use server
 /// return - returns hostname
-char *host_query(int row, int col, int error) {
+static char *host_query(int row, int col, int error) {
     char *host = "Enter Hostname and Port: ";
     char *welcome = "Welcome to Chess.";
     attron(A_BOLD); // bolds
 
     if (error == NO_RESPONSE || error == NOT_CHESS) {      // handles errors for connecting if possible
         char *error_msg;
-        if (error == NO_RESPONSE) error_msg = "The host is no responding";
+        if (error == NO_RESPONSE) error_msg = "The host is not responding because it does not exist or it is offline.";
         else error_msg = "The host's name and/or port does not support a chess server.";     
         init_pair(1, COLOR_RED, COLOR_BLACK);
         attron(COLOR_PAIR(1));
         mvprintw(row/2 - 3, (col-strlen(error_msg))/2, "%s", error_msg);
         attroff(COLOR_PAIR(1));
     }
-
+    
     mvprintw(1, (col-strlen(welcome))/2, "%s", welcome);
+
+    clear_row(row/2);
+
     mvprintw(row/2, (col-strlen(host))/2, "%s", host);
     char lt[2]; // use char array so concatenation works with null terminator
 
@@ -62,8 +79,7 @@ char *host_query(int row, int col, int error) {
                 if (length < HOST_SIZE - 1)
                     strcat(hostname, lt);
         }
-        move(row/2, 0);
-        clrtoeol(); // clears the row so no weird printing
+        clear_row(row/2);
         mvprintw(row/2, (col-strlen(host)-length)/2, "%s", host);
         printw("%s", hostname);
     }
@@ -71,10 +87,60 @@ char *host_query(int row, int col, int error) {
 }
 
 
-void start_game() {
+/// hostname_to_ip - converts hostname to ip address
+/// hostname - hostname
+/// ip - pointer to ip address
+/// return - error code if it does exist
+int hostname_to_ip(char *hostname , char *ip) {
+	struct hostent *h;
+	struct in_addr **addr_list;
 
-    
+	if ((h = gethostbyname(hostname)) == NULL) { // if it doesn't exist, return that it doesn't exist!
+		return HOST_INVALID;
+	}
 
+	addr_list = (struct in_addr **) h->h_addr_list;
+
+	for(int i = 0; addr_list[i] != NULL; i++) {
+		strcpy(ip , inet_ntoa(*addr_list[i]));
+		return HOST_EXISTS;
+	}
+
+	return HOST_INVALID;
+}
+
+
+/// connect_to_server - handles connecting to the chess server
+/// row - rows of the terminal
+/// col - columns of the terminal
+/// return - error code
+int connect_to_server(int row, int col, int error) {
+
+    char ip[100];
+    char *host;
+    char *port;
+
+    do {
+        char *hostname = host_query(row, col, error);
+        if (strlen(hostname) == 0) {
+            return 1;
+        }
+        host = strtok(hostname, ":");
+        port = strtok(hostname, ":");
+
+        error = NO_RESPONSE;
+    } while(hostname_to_ip(host, ip) == -1); 
+
+//    int sock;
+//
+//    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+//        fprintf(stderr, "Socket creation error \n");
+//        free(hostname);
+//        return 3;
+//    }
+//
+//    free(hostname);
+    return 3;
 }
 
 
@@ -108,9 +174,12 @@ int main() {
         return 2;
     }
 
-    start_color();
+    start_color(); // allows color for ncurses
     
-    start_game();
+    int error = NO_ERROR;
+    while (connect_to_server(row, col, error) != 2) {
+        error = NOT_CHESS;
+    };
 
     refresh();
     endwin();
