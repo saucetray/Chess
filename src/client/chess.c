@@ -114,11 +114,12 @@ int hostname_to_ip(char *hostname , char *ip) {
 /// row - rows of the terminal
 /// col - columns of the terminal
 /// return - error code
-int connect_to_server(int row, int col, int error) {
+int connect_to_server(int row, int col) {
 
     char ip[100];
     char *host;
     char *port;
+    int error = NO_ERROR;
 
     do {
         char *hostname = host_query(row, col, error);
@@ -127,19 +128,12 @@ int connect_to_server(int row, int col, int error) {
         }
         host = strtok(hostname, ":");
         port = strtok(hostname, ":");
+    
 
         error = NO_RESPONSE;
     } while(hostname_to_ip(host, ip) == -1); 
+    
 
-//    int sock;
-//
-//    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-//        fprintf(stderr, "Socket creation error \n");
-//        free(hostname);
-//        return 3;
-//    }
-//
-//    free(hostname);
     return 3;
 }
 
@@ -176,10 +170,9 @@ int main() {
 
     start_color(); // allows color for ncurses
     
-    int error = NO_ERROR;
-    while (connect_to_server(row, col, error) != 2) {
-        error = NOT_CHESS;
-    };
+    if (connect_to_server(row, col) < 0) {
+        return 4;
+    }
 
     refresh();
     endwin();
