@@ -43,7 +43,7 @@ static inline void clear_row(int row) {
 /// error - error code if failure to connect/use server
 /// return - returns hostname
 static char *host_query(int row, int col, int error) {
-    char *host = "Enter Hostname (or IP) and Port: ";
+    char *host = "Enter Hostname and Port: ";
     char *welcome = "Welcome to Chess.";
     attron(A_BOLD); // bolds
 
@@ -120,7 +120,7 @@ int connect_to_server(int row, int col, int error) {
     char *host;
     char *port;
 
-    do { // handles getting the ip from a hos
+    do {
         char *hostname = host_query(row, col, error);
         if (strlen(hostname) == 0) {
             return 1;
@@ -129,16 +129,17 @@ int connect_to_server(int row, int col, int error) {
         port = strtok(hostname, ":");
 
         error = NO_RESPONSE;
-        free(hostname);
     } while(hostname_to_ip(host, ip) == -1); 
 
-    int sock;
-
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        fprintf(stderr, "Socket failed to create...\n");
-        return 3;
-    }
-
+//    int sock;
+//
+//    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+//        fprintf(stderr, "Socket creation error \n");
+//        free(hostname);
+//        return 3;
+//    }
+//
+//    free(hostname);
     return 3;
 }
 
