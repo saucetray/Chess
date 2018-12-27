@@ -13,6 +13,7 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include <ncurses.h>
+#include <unistd.h>
 
 #define HOST_SIZE 60
 #define MIN_SIZE_SCREEN 40
@@ -22,11 +23,9 @@
 #define DELETE_KEY 127
 
 #define NO_ERROR 0
-#define NO_RESPONSE 1
 #define NOT_CHESS 2
-
 #define HOST_EXISTS 0
-#define HOST_INVALID -1
+#define HOST_INVALID 1
 
 
 /// clear_row - clears the specified row
@@ -43,17 +42,19 @@ static inline void clear_row(int row) {
 /// error - error code if failure to connect/use server
 /// return - returns hostname
 static char *host_query(int row, int col, int error) {
+    clear();
     char *host = "Enter Hostname and Port: ";
     char *welcome = "Welcome to Chess.";
     attron(A_BOLD); // bolds
 
-    if (error == NO_RESPONSE || error == NOT_CHESS) {      // handles errors for connecting if possible
+    if (error == HOST_INVALID || error == NOT_CHESS) {      // handles errors for connecting if possible
         char *error_msg;
-        if (error == NO_RESPONSE) error_msg = "The host is not responding because it does not exist or it is offline.";
+        if (error == HOST_INVALID) error_msg = "The host is not responding because it does not exist or it is offline.";
         else error_msg = "The host's name and/or port does not support a chess server.";     
         init_pair(1, COLOR_RED, COLOR_BLACK);
         attron(COLOR_PAIR(1));
         mvprintw(row/2 - 3, (col-strlen(error_msg))/2, "%s", error_msg);
+        refresh();
         attroff(COLOR_PAIR(1));
     }
     
@@ -119,22 +120,53 @@ int connect_to_server(int row, int col) {
     char ip[100];
     char *host;
     char *port;
-    int error = NO_ERROR;
-
+    int error = NO_ERROR, sock = 0, read;
+    struct sockaddr_in serv_addr;
+    
     do {
+
         char *hostname = host_query(row, col, error);
         if (strlen(hostname) == 0) {
-            return 1;
+            return -1;
         }
         host = strtok(hostname, ":");
-        port = strtok(hostname, ":");
+        port = strtok(NULL, ":");
+    
+        if (hostname_to_ip(hostname, ip) == HOST_INVALID) {
+            error = HOST_INVALID;
+        } else {
+            init_pair(2, COLOR_BLUE, COLOR_BLACK);
+            attron(COLOR_PAIR(2));
+            int print_offset = 3;
+            mvprintw(print_offset, 0, "%s", "Connecting to...");
+            print_offset++;
+            if (strcmp(ip, hostname) != 0) {
+                mvprintw(4, 0, "%s", "Host: ");
+                printw("%s", host);
+                print_offset++;
+            }
+            mvprintw(print_offset, 0, "%s", "IP: " );
+            printw("%s", ip);
+            print_offset++;
+            mvprintw(print_offset, 0, "%s", "Port: ");
+            printw("%s", port);
+            refresh();
+            attroff(COLOR_PAIR(2));
+            serv_addr.sin_family = AF_INET;
+            serv_addr.sin_port = htons(strtol(port, NULL, 10));
+
+            inet_pton(AF_INET, ip, &serv_addr.sin_addr); 
+                
+            sleep(1);
+            if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+                error = NOT_CHESS;
+            }
+        }
+
+    } while (error != NO_ERROR); 
     
 
-        error = NO_RESPONSE;
-    } while(hostname_to_ip(host, ip) == -1); 
-    
-
-    return 3;
+    return 0;
 }
 
 
@@ -170,9 +202,7 @@ int main() {
 
     start_color(); // allows color for ncurses
     
-    if (connect_to_server(row, col) < 0) {
-        return 4;
-    }
+    connect_to_server(row, col);
 
     refresh();
     endwin();
