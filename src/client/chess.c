@@ -114,21 +114,21 @@ int hostname_to_ip(char *hostname , char *ip) {
 /// connect_to_server - handles connecting to the chess server
 /// row - rows of the terminal
 /// col - columns of the terminal
-/// return - error code
+/// return - socket integer
 int connect_to_server(int row, int col) {
 
-    char ip[100];
-    char *host;
-    char *port;
-    int error = NO_ERROR, sock = 0, read;
-    struct sockaddr_in serv_addr;
+    char ip[16]; // ip 
+    char *host; // the hostname
+    char *port; // the port number
+    int error = NO_ERROR, sock;
+    struct sockaddr_in serv_addr; 
     
     do {
 
         char *hostname = host_query(row, col, error);
         if (strlen(hostname) == 0) {
             return -1;
-        }
+        } // Exit by just pressing enter
         host = strtok(hostname, ":");
         port = strtok(NULL, ":");
     
@@ -152,10 +152,16 @@ int connect_to_server(int row, int col) {
             printw("%s", port);
             refresh();
             attroff(COLOR_PAIR(2));
-            serv_addr.sin_family = AF_INET;
-            serv_addr.sin_port = htons(strtol(port, NULL, 10));
+            memset(&serv_addr, '0', sizeof(serv_addr));
+            
+            if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) { // create a socket
+                return -1;
+            }
 
-            inet_pton(AF_INET, ip, &serv_addr.sin_addr); 
+            serv_addr.sin_family = AF_INET;
+            serv_addr.sin_port = htons(strtol(port, NULL, 0));
+
+            inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr); 
                 
             sleep(1);
             if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
@@ -166,7 +172,7 @@ int connect_to_server(int row, int col) {
     } while (error != NO_ERROR); 
     
 
-    return 0;
+    return sock;
 }
 
 
@@ -202,7 +208,9 @@ int main() {
 
     start_color(); // allows color for ncurses
     
-    connect_to_server(row, col);
+    int socket = connect_to_server(row, col);
+    
+    //server_comms(socket);
 
     refresh();
     endwin();
