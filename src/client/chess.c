@@ -1,4 +1,4 @@
-///
+///;;
 /// chess.c
 /// client program main to handle the chess game
 /// Author: Justin Sostre
@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -14,6 +15,8 @@
 #include <signal.h>
 #include <ncurses.h>
 #include <unistd.h>
+
+#include "chess_network.h"
 
 #define HOST_SIZE 60
 #define MIN_SIZE_SCREEN 40
@@ -33,6 +36,22 @@
 static inline void clear_row(int row) {
     move(row, 0);
     clrtoeol();
+}
+
+
+/// create_newin - creates a new window with a border
+/// height - height of the window
+/// width - the width of the window
+/// starty - the start y of the window
+/// startx - the start x of the window
+WINDOW *create_newwin(int height, int width, int starty, int startx) {	
+    
+    WINDOW *local_win;
+
+	local_win = newwin(height, width, starty, startx);
+	box(local_win, starty , startx);		
+	wrefresh(local_win);		
+	return local_win;
 }
 
 
@@ -88,35 +107,11 @@ static char *host_query(int row, int col, int error) {
 }
 
 
-/// hostname_to_ip - converts hostname to ip address
-/// hostname - hostname
-/// ip - pointer to ip address
-/// return - error code if it does exist
-int hostname_to_ip(char *hostname , char *ip) {
-	struct hostent *h;
-	struct in_addr **addr_list;
-
-	if ((h = gethostbyname(hostname)) == NULL) { // if it doesn't exist, return that it doesn't exist!
-		return HOST_INVALID;
-	}
-
-	addr_list = (struct in_addr **) h->h_addr_list;
-
-	for(int i = 0; addr_list[i] != NULL; i++) {
-		strcpy(ip , inet_ntoa(*addr_list[i]));
-		return HOST_EXISTS;
-	}
-
-	return HOST_INVALID;
-}
-
-
 /// connect_to_server - handles connecting to the chess server
 /// row - rows of the terminal
 /// col - columns of the terminal
 /// return - socket integer
 int connect_to_server(int row, int col) {
-
     char ip[16]; // ip 
     char *host; // the hostname
     char *port; // the port number
@@ -168,11 +163,19 @@ int connect_to_server(int row, int col) {
                 error = NOT_CHESS;
             }
         }
-
     } while (error != NO_ERROR); 
-    
-
     return sock;
+}
+
+
+/// login_server - handles logging into the server
+/// socket - socket number
+/// row - the row of the main window
+/// col - the col of the main window
+void login_server(int socket, int row, int col) {
+
+    create_newwin(10, 10, 15, 15);
+
 }
 
 
@@ -209,11 +212,13 @@ int main() {
     start_color(); // allows color for ncurses
     
     int socket = connect_to_server(row, col);
-    
-    //server_comms(socket);
+     
+    //handle_server(socket, row, col);
 
+    getch();
     refresh();
     endwin();
 
     return 0;
 }
+
