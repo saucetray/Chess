@@ -44,14 +44,13 @@ static inline void clear_row(int row) {
 /// width - the width of the window
 /// starty - the start y of the window
 /// startx - the start x of the window
-WINDOW *create_newwin(int height, int width, int starty, int startx) {	
-    
+WINDOW *create_newwin(int height, int width, int starty, int startx) {	 
     WINDOW *local_win;
 
 	local_win = newwin(height, width, starty, startx);
-	box(local_win, starty , startx);		
 	wrefresh(local_win);		
 	return local_win;
+
 }
 
 
@@ -61,7 +60,7 @@ WINDOW *create_newwin(int height, int width, int starty, int startx) {
 /// error - error code if failure to connect/use server
 /// return - returns hostname
 static char *host_query(int row, int col, int error) {
-    clear();
+    refresh();
     char *host = "Enter Hostname and Port: ";
     char *welcome = "Welcome to Chess.";
     attron(A_BOLD); // bolds
@@ -78,31 +77,15 @@ static char *host_query(int row, int col, int error) {
     }
     
     mvprintw(1, (col-strlen(welcome))/2, "%s", welcome);
-
     clear_row(row/2);
 
-    mvprintw(row/2, (col-strlen(host))/2, "%s", host);
+    mvprintw(row/2, (col-strlen(host))/3, "%s", host);
     char lt[2]; // use char array so concatenation works with null terminator
 
     char *hostname = calloc(sizeof(char), HOST_SIZE); // hostname
-    hostname[0] = '\0'; // starts null terminator for concatenations
-
-    while((lt[0] = getch()) != ENTER_KEY) { // starts getting input for hostname
-        int length = strlen(hostname);
-        switch(lt[0]) { // handles different key inputs
-            case DELETE_KEY:
-                if (length != 0) {
-                    hostname[length-1] = '\0';
-                }
-                break;
-            default: // for other character input is regular
-                if (length < HOST_SIZE - 1)
-                    strcat(hostname, lt);
-        }
-        clear_row(row/2);
-        mvprintw(row/2, (col-strlen(host)-length)/2, "%s", host);
-        printw("%s", hostname);
-    }
+    hostname[0] = '\0'; // starts null terminator for concatenations 
+    refresh();
+    getstr(hostname);
     return hostname;
 }
 
@@ -111,7 +94,7 @@ static char *host_query(int row, int col, int error) {
 /// row - rows of the terminal
 /// col - columns of the terminal
 /// return - socket integer
-int connect_to_server(int row, int col) {
+int connect_to_server(WINDOW *serv_info, int row, int col) {
     char ip[16]; // ip 
     char *host; // the hostname
     char *port; // the port number
@@ -119,7 +102,7 @@ int connect_to_server(int row, int col) {
     struct sockaddr_in serv_addr; 
     
     do {
-
+        wclear(serv_info);
         char *hostname = host_query(row, col, error);
         if (strlen(hostname) == 0) {
             return -1;
@@ -132,20 +115,22 @@ int connect_to_server(int row, int col) {
         } else {
             init_pair(2, COLOR_BLUE, COLOR_BLACK);
             attron(COLOR_PAIR(2));
-            int print_offset = 3;
-            mvprintw(print_offset, 0, "%s", "Connecting to...");
+            int print_offset = 0;
+            mvwprintw(serv_info, print_offset, 0, "%s", "SERVER INFO");
+            print_offset++;
+            mvwprintw(serv_info, print_offset, 0, "%s", "Connecting to...");
             print_offset++;
             if (strcmp(ip, hostname) != 0) {
-                mvprintw(4, 0, "%s", "Host: ");
-                printw("%s", host);
+                mvwprintw(serv_info, print_offset, 0, "%s", "Host: ");
+                wprintw(serv_info, "%s", host);
                 print_offset++;
             }
-            mvprintw(print_offset, 0, "%s", "IP: " );
-            printw("%s", ip);
+            mvwprintw(serv_info, print_offset, 0, "%s", "IP: " );
+            wprintw(serv_info, "%s", ip);
             print_offset++;
-            mvprintw(print_offset, 0, "%s", "Port: ");
-            printw("%s", port);
-            refresh();
+            mvwprintw(serv_info, print_offset, 0, "%s", "Port: ");
+            wprintw(serv_info, "%s", port);
+            wrefresh(serv_info);
             attroff(COLOR_PAIR(2));
             memset(&serv_addr, '0', sizeof(serv_addr));
             
@@ -155,10 +140,9 @@ int connect_to_server(int row, int col) {
 
             serv_addr.sin_family = AF_INET;
             serv_addr.sin_port = htons(strtol(port, NULL, 0));
-
-            inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr); 
-                
-            sleep(1);
+            inet_pton(AF_INET, ip, &serv_addr.sin_addr); 
+    
+            sleep(2);
             if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
                 error = NOT_CHESS;
             }
@@ -172,10 +156,10 @@ int connect_to_server(int row, int col) {
 /// socket - socket number
 /// row - the row of the main window
 /// col - the col of the main window
-void login_server(int socket, int row, int col) {
+void login_server(WINDOW *w, WINDOW *serv_info, int socket, int row, int col) {
 
-    create_newwin(10, 10, 15, 15);
-
+    wclear(w);
+    
 }
 
 
@@ -183,12 +167,12 @@ void login_server(int socket, int row, int col) {
 int main() {
     int row, col;
 
-    initscr();
+    WINDOW *w = initscr();
     raw();
 
     keypad(stdscr, TRUE);
-    noecho(); 
-    
+
+    WINDOW *serv_info = create_newwin(5,30,0,0);
     getmaxyx(stdscr, row, col); // gets terminal size
     
     if (row < MIN_SIZE_SCREEN || col < MIN_SIZE_SCREEN) {  // minimum size screen to gaurentee the board fits and all information
@@ -211,12 +195,15 @@ int main() {
 
     start_color(); // allows color for ncurses
     
-    int socket = connect_to_server(row, col);
+    int socket = connect_to_server(serv_info, row, col);
      
     //handle_server(socket, row, col);
+    
+    login_server(w, serv_info, socket, row, col);
 
     getch();
     refresh();
+    delwin(serv_info);
     endwin();
 
     return 0;
