@@ -1,8 +1,4 @@
-///
-/// Chess Server Implementation
-/// Author: Justin Sostre
-///
-
+// Server side C/C++ program to demonstrate Socket programming 
 #include <unistd.h> 
 #include <stdio.h> 
 #include <sys/socket.h> 
@@ -13,20 +9,25 @@
 
 #define PORT 12000
 
-int main(int argc, char const *argv[]) {
-
+int main(int argc, char const *argv[]) 
+{ 
 	int server_fd, new_socket, valread; 
 	struct sockaddr_in address; 
 	int opt = 1; 
 	int addrlen = sizeof(address); 
 	char buffer[1024] = {0}; 
+	char *hello = "Hello from server"; 
 	
-	if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) { 
+	// Creating socket file descriptor 
+	if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) 
+	{ 
 		perror("socket failed"); 
 		exit(EXIT_FAILURE); 
 	} 
 	
-	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) { 
+	// Setting socket options.
+	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) 
+	{ 
 		perror("setsockopt"); 
 		exit(EXIT_FAILURE); 
 	} 
@@ -34,44 +35,38 @@ int main(int argc, char const *argv[]) {
 	address.sin_addr.s_addr = INADDR_ANY; // Making this socket available to all available interfaces.
 	address.sin_port = htons(PORT); // Attaching the socket to defined PORT 
 	
-	if (bind(server_fd, (struct sockaddr *)&address, sizeof(address))<0) { 
+	// Forcefully attaching socket to the PORT 
+	if (bind(server_fd, (struct sockaddr *)&address, sizeof(address))<0) 
+	{ 
 		perror("bind failed"); 
 		exit(EXIT_FAILURE); 
 	} 
 
-	if (listen(server_fd, 3) < 0) { 
+	// Start listening for incoming connections. This would make this socket a passive socket for
+	// accepting the connections. 3 specifies the maximum length of queue for pending connections.
+	// If this queue is full, then the client may receive an error.
+	if (listen(server_fd, 3) < 0) 
+	{ 
 		perror("listen"); 
 		exit(EXIT_FAILURE); 
 	} 
 
+	// Accepting the incomming connection.
 	if ((new_socket = accept(server_fd, (struct sockaddr *)&address, 
-					(socklen_t*)&addrlen))<0) { 
+					(socklen_t*)&addrlen))<0) 
+	{ 
 		perror("accept"); 
 		exit(EXIT_FAILURE); 
 	} 
 
-	char usr[40] = {0};
-    char pswd[40] = {0};
+	// Read the specified number of bytes into the buffer from the new connection.
 
-    printf("Reading usr\n");
-    if ((valread = read(new_socket, usr, sizeof(usr))) < 0) {
-        return 1;
-    }
-    printf("%s\n", usr);
-    printf("Reading pswd\n");
-    if ((valread = read(new_socket, pswd, sizeof(pswd)) < 0)) {
-        return 1;
-    }
+	valread = read( new_socket , buffer, 1024); 
+	printf("%s\n",buffer ); 
 
-    int32_t accepted = 3;
-    printf("Okay...\n");
-    if (strcmp(usr, "justin") == 0 && strcmp(pswd, "sostre") == 0) {
-        printf("Sending accepted");
-        send(new_socket, &accepted, sizeof(int32_t), 0);
-    }
 	// Sending the buffer to the connected client.
+	send(new_socket , hello , strlen(hello) , 0 ); 
 	printf("Hello message sent\n"); 
 
-	return 0;
-
+	return 0; 
 } 

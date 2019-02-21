@@ -1,4 +1,4 @@
-FLAGS = -Wextra -Wall -pedantic -std=c17 -O3 -lncurses -I../shared
+FLAGS = -S -Wextra -Wall -pedantic -std=c17 -O3 -lncurses -I../shared
 TEST_FLAGS = -Wextra -Wall -pedantic -std=c17 -ggdb -lncurses
 
 chess: chess.o chess_network.o
