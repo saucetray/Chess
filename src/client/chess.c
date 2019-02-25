@@ -172,7 +172,6 @@ int connect_to_server(int row, int col) {
             }
         }
     } while (error != NO_ERROR); 
-
     return sock;
 }
 
@@ -183,9 +182,6 @@ int connect_to_server(int row, int col) {
 int send_credentials(int socket, char username[USERNAME_SIZE], 
         char password[PASSWORD_SIZE]) {
 
-    clear();
-    refresh();
-
     int response;
     write(socket, username, USERNAME_SIZE);
     read(socket, &response, 4);
@@ -195,10 +191,10 @@ int send_credentials(int socket, char username[USERNAME_SIZE],
 
     write(socket, password, PASSWORD_SIZE);
     read(socket, &response, 4);
-    
     if (response == FAILED_LOGIN)
         return -2;
 
+    sleep(2);
     return 1;
 }
 
@@ -211,22 +207,23 @@ int login_server(int socket, int row, int col) {
 
     int notAuthenticated = 0;
 
-  //  do {
+    do {
         char *login_prompt = "Login";
         char *username_prompt = "Username: ";
         char *password_prompt = "Password: ";
         char username[USERNAME_SIZE] = {0};
         char password[PASSWORD_SIZE] = {0};
-        mvprintw(row/2+3, (col-strlen(login_prompt))/2, "%s", login_prompt);
-        mvprintw(row/2+1, (col-strlen(username_prompt))/2, 
+        mvprintw(row/2-3, (col-strlen(login_prompt))/2, "%s", login_prompt);
+        mvprintw(row/2-1, (col-strlen(username_prompt))/2, 
                 "%s", username_prompt);
-        mvprintw(row/2-1, (col-strlen(password_prompt))/2, 
+        mvprintw(row/2+1, (col-strlen(password_prompt))/2, 
                 "%s", password_prompt);
-
-        move(row+1, (col+strlen(username_prompt))+1);
+        clear_row(row/2);
+        clear_row(row/2-3);
+        move(row/2-1, (col+strlen(username_prompt))/2);
         getstr(username);
         if (username[0]=='\0') return -1;
-        move (row-1, (col+strlen(password_prompt))/2+1);
+        move(row/2+1, (col+strlen(password_prompt))/2);
         getstr(password);
         if (password[0]=='\0') return -1;
 
@@ -234,7 +231,7 @@ int login_server(int socket, int row, int col) {
             notAuthenticated = 1;
         }
 
-//    } while(notAuthenticated);
+    } while(notAuthenticated);
 
     return 1;
 }
@@ -277,7 +274,6 @@ int main() {
     //handle_server(socket, row, col);
     login_server(socket, row, col);
 
-    sleep(100000);
     refresh();
     endwin();
 
