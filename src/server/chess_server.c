@@ -12,6 +12,7 @@
 #include <pthread.h>
 
 #define PORT 10245
+#define LOGIN_INFO_LIM 42
 
 pthread_t *threads;
 
@@ -21,35 +22,53 @@ typedef struct {
 } Socket_Info;
 
 
+/// login_handle - Handles authentication of player
+/// socket - the socket used for the connection.
+/// return - the username for later use
+char *login_handle(int socket) {
+    char *username = malloc(sizeof(char) * LOGIN_INFO_LIM);
+    char password[42] = {0};
+
+    int protocol;
+    read(socket, username, LOGIN_INFO_LIM * sizeof(char)); 
+    puts(username);
+    send(socket, &protocol, sizeof(int), 0); 
+    read(socket, password, LOGIN_INFO_LIM * sizeof(char));
+    puts(password);
+    send(socket, &protocol, sizeof(int), 0);
+
+    return username;
+}
+
+
 /// handle_player - player's own thread running
 /// args - arguments for the thread
 /// *** Authentication Is Not Implemented ***
 void *handle_player(void *args) {
-    
-    int protocol;
-    int valread;
-    char buffer[1024] = {0};
+
     Socket_Info *info = (Socket_Info*) args;
-    valread = read(info->socket, buffer, 1024); 
-
-    protocol = 1;
-
-    send(info->socket, &protocol, sizeof(int), 0); 
     
-    free(info);
+    char *username;
+    if ((username = login_handle(info->socket)) == NULL) {
+        free(username);
+        free(info);
+        return 0;
+    }
+    
     return 0;
 }
 
 
+/// main - handles starting up handling connections for the server
 int main() { 
 	int server_fd, new_socket; 
 	struct sockaddr_in address; 
 	int opt = 1;
 	int addrlen = sizeof(address); 
 	
-        int length = 10;
-        threads = calloc(sizeof(pthread_t), length);
-        // Server is made.
+    int length = 10;
+    threads = calloc(sizeof(pthread_t), length);
+    // Server is made.
 	if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) { 
 		perror("socket failed"); 
 		exit(EXIT_FAILURE); 
@@ -77,40 +96,33 @@ int main() {
 		exit(EXIT_FAILURE); 
 	} 
 
-        printf("Accepting Connections to Chess.\n");
+    printf("Accepting Connections to Chess.\n");
 
-        while(1) {
-	        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, 
-					(socklen_t*)&addrlen))<0) { 
-                fprintf(stderr, "Failure to accept incoming connection.");
-            } else {
-                printf("Connection found!\n");
-                fflush(stdout);
-                int thread_index = -1;
-                for (int i = 0; i < length; i++) {
-                    if (threads[i] == 0) {
-                        thread_index = i;
-                        break;
-                    } 
-                }
+    while(1) {
+	    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, 
+				(socklen_t*)&addrlen))<0) { 
+            fprintf(stderr, "Failure to accept incoming connection.");
+        } else {
+            int thread_index = -1;
+            for (int i = 0; i < length; i++) {
+                if (threads[i] == 0) {
+                    thread_index = i;
+                    break;
+                } 
+            }
+            if (thread_index == -1) {
+                thread_index = length;
+                length *= 2;
+                threads = realloc(threads, sizeof(threads) * length);
+            }
 
-                printf("Conenction is being made into a thread.\n");
-                if (thread_index == -1) {
-                    thread_index = length;
-                    length *= 2;
-                    threads = realloc(threads, sizeof(threads) * length);
-                }
-
-                Socket_Info *info = malloc(sizeof(info));
-                info->id = thread_index;
-                info->socket = new_socket;
-                printf("Dog.\n");
-                fflush(stdout);
-                pthread_create(&threads[thread_index], NULL, 
-                        handle_player, (void*) info);
-                printf("Dog.\n");
-	        }
-        }
+            Socket_Info *info = malloc(sizeof(info));
+            info->id = thread_index;
+            info->socket = new_socket;
+            pthread_create(&threads[thread_index], NULL, 
+                    handle_player, (void*) info);
+	    }
+    }
 	return 0; 
 } 
 
