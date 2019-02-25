@@ -1,4 +1,7 @@
-// Server side C/C++ program to demonstrate Socket programming 
+/// FILENAME: chess_server.c
+/// DESCRIPTION: Backend for Server
+/// CONTRIBUTORS: Justin Sostre
+
 #include <unistd.h> 
 #include <stdio.h> 
 #include <sys/socket.h> 
@@ -8,7 +11,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
-#define PORT 12000
+#define PORT 10245
 
 pthread_t *threads;
 
@@ -18,22 +21,22 @@ typedef struct {
 } Socket_Info;
 
 
-void  *handle_player(void *args) {
+/// handle_player - player's own thread running
+/// args - arguments for the thread
+/// *** Authentication Is Not Implemented ***
+void *handle_player(void *args) {
     
-    printf("Handling the player.\n");
-    fflush(stdout);
-    sleep(2);
+    int protocol;
     int valread;
     char buffer[1024] = {0};
-    char *hello = "Dog.";
     Socket_Info *info = (Socket_Info*) args;
     valread = read(info->socket, buffer, 1024); 
-    printf("%s\n",buffer); 
-    
-    // Sending the buffer to the connected client.
-    send(info->socket , hello , strlen(hello) , 0 ); 
-    printf("Hello message sent\n"); 
 
+    protocol = 1;
+
+    send(info->socket, &protocol, sizeof(int), 0); 
+    
+    free(info);
     return 0;
 }
 
@@ -77,7 +80,7 @@ int main() {
         printf("Accepting Connections to Chess.\n");
 
         while(1) {
-	    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, 
+	        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, 
 					(socklen_t*)&addrlen))<0) { 
                 fprintf(stderr, "Failure to accept incoming connection.");
             } else {
@@ -98,7 +101,7 @@ int main() {
                     threads = realloc(threads, sizeof(threads) * length);
                 }
 
-                Socket_Info *info = NULL;
+                Socket_Info *info = malloc(sizeof(info));
                 info->id = thread_index;
                 info->socket = new_socket;
                 printf("Dog.\n");
@@ -106,9 +109,8 @@ int main() {
                 pthread_create(&threads[thread_index], NULL, 
                         handle_player, (void*) info);
                 printf("Dog.\n");
-	    }
-
+	        }
         }
-
 	return 0; 
 } 
+
