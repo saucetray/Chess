@@ -1,4 +1,4 @@
-FLAGS = -Wextra -Wall -pedantic -std=c17 -O3
+FLAGS = -Wextra -Wall -pedantic -std=c17 -O3 -I../shared
 
 TEST_FLAGS = -Wextra -Wall -pedantic -std=c17 -ggdb
 

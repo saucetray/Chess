@@ -206,14 +206,14 @@ int send_credentials(int socket, char username[USERNAME_SIZE],
 int login_server(int socket, int row, int col) {
 
     int notAuthenticated = 0;
-
     do {
         char *login_prompt = "Login";
         char *username_prompt = "Username: ";
         char *password_prompt = "Password: ";
         char username[USERNAME_SIZE] = {0};
         char password[PASSWORD_SIZE] = {0};
-        mvprintw(row/2-3, (col-strlen(login_prompt))/2, "%s", login_prompt);
+        mvprintw(row/2-3, (col-strlen(login_prompt))/2, 
+                "%s", login_prompt);
         mvprintw(row/2-1, (col-strlen(username_prompt))/2, 
                 "%s", username_prompt);
         mvprintw(row/2+1, (col-strlen(password_prompt))/2, 

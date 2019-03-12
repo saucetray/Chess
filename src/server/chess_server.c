@@ -4,6 +4,7 @@
 
 #include <unistd.h> 
 #include <stdio.h> 
+#include <chess_protocol.h>
 #include <sys/socket.h> 
 #include <stdlib.h> 
 #include <netinet/in.h> 
@@ -19,6 +20,7 @@ pthread_t *threads;
 typedef struct {
     int id;
     int socket;
+    char *username;
 } Socket_Info;
 
 
@@ -47,60 +49,78 @@ char *login_handle(int socket) {
 void *handle_player(void *args) {
 
     Socket_Info *info = (Socket_Info*) args;
-    
-    char *username;
-    if ((username = login_handle(info->socket)) == NULL) {
-        free(username);
+    if (!(info->username = login_handle(info->socket))) {
+        free(info->username);
         free(info);
         return 0;
     }
+
+    int running = 0;
     
+    unsigned char request;
+    while(running) {
+        read(info->socket, &request, 2048);
+        switch(request) {
+            case UPDATE:
+                update_client(info);
+                break;
+            case CHALLENGE:
+                client_challenge(info);
+                break;
+            case LOGOUT:
+                client_logout(info);
+                return NULL;
+        }
+    }
+
+    free(info->username);
+    free(info);
     return 0;
 }
 
 
 /// main - handles starting up handling connections for the server
 int main() { 
-	int server_fd, new_socket; 
-	struct sockaddr_in address; 
-	int opt = 1;
-	int addrlen = sizeof(address); 
+    int server_fd, new_socket; 
+    struct sockaddr_in address; 
+    int opt = 1;
+    int addrlen = sizeof(address); 
 	
     int length = 10;
     threads = calloc(sizeof(pthread_t), length);
     // Server is made.
-	if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) { 
-		perror("socket failed"); 
-		exit(EXIT_FAILURE); 
-	} 
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) { 
+	perror("socket failed"); 
+	exit(EXIT_FAILURE); 
+    } 
 	
-	// Setting socket options.
-	if (setsockopt(server_fd, SOL_SOCKET, 
-                    SO_REUSEADDR, &opt, sizeof(opt))) { 
-		perror("setsockopt"); 
-		exit(EXIT_FAILURE); 
-	} 
-	address.sin_family = AF_INET; 
-	address.sin_addr.s_addr = INADDR_ANY; 
-	address.sin_port = htons(PORT); // Attaching the socket to defined PORT 
+    // Setting socket options.
+    if (setsockopt(server_fd, SOL_SOCKET, 
+                SO_REUSEADDR, &opt, sizeof(opt))) { 
+	perror("setsockopt"); 
+	exit(EXIT_FAILURE); 
+    } 
+    address.sin_family = AF_INET; 
+    address.sin_addr.s_addr = INADDR_ANY; 
+    address.sin_port = htons(PORT); // Attaching the socket to defined PORT 
 	
-	// Forcefully attaching socket to the PORT 
-	if (bind(server_fd, (struct sockaddr *)&address, sizeof(address))<0) { 
-		perror("bind failed"); 
-		exit(EXIT_FAILURE); 
-	} 
+    // Forcefully attaching socket to the PORT 
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address))<0) {
+	perror("bind failed"); 
+	exit(EXIT_FAILURE); 
+    } 
 
-	// Start listening for incoming connections. Will deny if 10 in queue
-	if (listen(server_fd, 10) < 0) { 
-		perror("listen"); 
-		exit(EXIT_FAILURE); 
-	} 
+    // Start listening for incoming connections. Will deny if 10 in queue
+    if (listen(server_fd, 10) < 0) { 
+	perror("listen"); 
+	exit(EXIT_FAILURE); 
+    } 
 
     printf("Accepting Connections to Chess.\n");
 
     while(1) {
-	    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, 
-				(socklen_t*)&addrlen))<0) { 
+	if ((new_socket = accept(server_fd, (struct sockaddr *)&address, 
+	        (socklen_t*)&addrlen))<0) { 
             fprintf(stderr, "Failure to accept incoming connection.");
         } else {
             int thread_index = -1;
@@ -121,8 +141,8 @@ int main() {
             info->socket = new_socket;
             pthread_create(&threads[thread_index], NULL, 
                     handle_player, (void*) info);
-	    }
+	}
     }
-	return 0; 
+    return 0; 
 } 
 
