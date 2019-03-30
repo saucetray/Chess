@@ -157,7 +157,6 @@ int connect_to_server(int row, int col) {
             serv_addr.sin_port = htons(strtol(port, NULL, 0));
             inet_pton(AF_INET, ip, &serv_addr.sin_addr); 
     
-            sleep(2);
             if (connect(sock, (struct sockaddr *)&serv_addr, 
                         sizeof(serv_addr)) < 0) {
                 error = NOT_CHESS;
@@ -182,17 +181,18 @@ int connect_to_server(int row, int col) {
 int send_credentials(int socket, char username[USERNAME_SIZE], 
         char password[PASSWORD_SIZE]) {
 
-    int response;
-    write(socket, username, USERNAME_SIZE);
-    read(socket, &response, 4);
-    
-    if (response == FAILED_LOGIN)
-        return -1;
+    char credentials[100];
+    strncpy(credentials, username, USERNAME_SIZE);
+    strncat(credentials, "|", 1);
+    strncat(credentials, password, PASSWORD_SIZE);
+    char response[100];
 
-    write(socket, password, PASSWORD_SIZE);
-    read(socket, &response, 4);
-    if (response == FAILED_LOGIN)
-        return -2;
+    write(socket, credentials, USERNAME_SIZE+PASSWORD_SIZE);
+    read(socket, response, 100);
+    
+    printf(response);
+    fflush(stdout);
+    return -1;
 
     sleep(2);
     return 1;
