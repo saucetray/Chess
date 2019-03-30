@@ -2,147 +2,274 @@
 /// DESCRIPTION: Backend for Server
 /// CONTRIBUTORS: Justin Sostre
 
-#include <unistd.h> 
-#include <stdio.h> 
-#include <chess_protocol.h>
-#include <sys/socket.h> 
-#include <stdlib.h> 
-#include <netinet/in.h> 
-#include <string.h> 
-#include <arpa/inet.h>
-#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <sys/poll.h>
+#include <sys/time.h>
+#include <netinet/in.h>
+#include <errno.h>
 
-#define PORT 10245
-#define LOGIN_INFO_LIM 42
+#define PORT 12345
 
-pthread_t *threads;
+#define TRUE 1
+#define FALSE 0
 
-typedef struct {
-    int id;
-    int socket;
-    char *username;
-} Socket_Info;
+#define MAX_BUFFER 120
+#define MAX_FILES 200
+
+#define USER_DNE 0
+#define USER_EXISTS 1
+#define CREDENTIALS_FILE "credentials.csv"
+#define CREDENTIAL_LENGTH 42
 
 
-/// login_handle - Handles authentication of player
-/// socket - the socket used for the connection.
-/// return - the username for later use
-char *login_handle(int socket) {
-    char *username = malloc(sizeof(char) * LOGIN_INFO_LIM);
-    char password[42] = {0};
+/// create_user - creates a new entry for the new user account
+/// arguments:       username - username for the new account
+///                  password - password for the new account
+///
+/// returns:         NONE
+void create_user(char username[CREDENTIAL_LENGTH], char password[CREDENTIAL_LENGTH]) {
+    FILE *creds = fopen(CREDENTIALS_FILE, "a+");
+    char buffer[CREDENTIAL_LENGTH * 2 + 4];
+    strncpy(buffer, username, CREDENTIAL_LENGTH);
+    strncat(buffer, ",", 1);
+    strncat(buffer, password, CREDENTIAL_LENGTH);
+    strncat(buffer, "\n\0", 2);
+    printf("%s\n", buffer);
 
-    int protocol;
-    read(socket, username, LOGIN_INFO_LIM * sizeof(char)); 
-    puts(username);
-    send(socket, &protocol, sizeof(int), 0); 
-    read(socket, password, LOGIN_INFO_LIM * sizeof(char));
-    puts(password);
-    send(socket, &protocol, sizeof(int), 0);
-
-    return username;
+    fputs(buffer, creds);
 }
 
 
-/// handle_player - player's own thread running
-/// args - arguments for the thread
-/// *** Authentication Is Not Implemented ***
-void *handle_player(void *args) {
-
-    Socket_Info *info = (Socket_Info*) args;
-    if (!(info->username = login_handle(info->socket))) {
-        free(info->username);
-        free(info);
-        return 0;
+/// username_validation - validates if a username exists for registering purposes
+/// arguments:       username - username string to look for
+///
+/// returns:         WHETHER USER EXISTS OR NOT
+int username_validation(char username[CREDENTIAL_LENGTH]) {
+    char buffer[2*CREDENTIAL_LENGTH + 10];
+    FILE *creds = fopen(CREDENTIALS_FILE, "r");
+    while (fgets(buffer, 2*CREDENTIAL_LENGTH + 10, creds) != NULL) {
+         char *temp_username = strtok(buffer, ",");
+         if (username == temp_username) {
+             return USER_EXISTS;
+         }
     }
 
-    int running = 0;
-    
-    unsigned char request;
-    while(running) {
-        read(info->socket, &request, 2048);
-        switch(request) {
-            case UPDATE:
-                update_client(info);
-                break;
-            case CHALLENGE:
-                client_challenge(info);
-                break;
-            case LOGOUT:
-                client_logout(info);
-                return NULL;
-        }
-    }
-
-    free(info->username);
-    free(info);
-    return 0;
+    return USER_DNE;
 }
 
 
-/// main - handles starting up handling connections for the server
-int main() { 
-    int server_fd, new_socket; 
-    struct sockaddr_in address; 
-    int opt = 1;
-    int addrlen = sizeof(address); 
-	
-    int length = 10;
-    threads = calloc(sizeof(pthread_t), length);
-    // Server is made.
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) { 
-	perror("socket failed"); 
-	exit(EXIT_FAILURE); 
-    } 
-	
-    // Setting socket options.
-    if (setsockopt(server_fd, SOL_SOCKET, 
-                SO_REUSEADDR, &opt, sizeof(opt))) { 
-	perror("setsockopt"); 
-	exit(EXIT_FAILURE); 
-    } 
-    address.sin_family = AF_INET; 
-    address.sin_addr.s_addr = INADDR_ANY; 
-    address.sin_port = htons(PORT); // Attaching the socket to defined PORT 
-	
-    // Forcefully attaching socket to the PORT 
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address))<0) {
-	perror("bind failed"); 
-	exit(EXIT_FAILURE); 
-    } 
+/// handle_request - handle's the request from the client
+/// arguments:       socket - socket that the client is on
+///                  buffer - buffer
+///
+/// returns:         code for running    
+int handle_request(int fd, char buffer[MAX_BUFFER]) {
+    char *tok = strtok(buffer, ":");
 
-    // Start listening for incoming connections. Will deny if 10 in queue
-    if (listen(server_fd, 10) < 0) { 
-	perror("listen"); 
-	exit(EXIT_FAILURE); 
-    } 
-
-    printf("Accepting Connections to Chess.\n");
-
-    while(1) {
-	if ((new_socket = accept(server_fd, (struct sockaddr *)&address, 
-	        (socklen_t*)&addrlen))<0) { 
-            fprintf(stderr, "Failure to accept incoming connection.");
+    if (strcmp(tok, "login")) {  // login handling 
+        char *username = strtok(buffer, ",");  // gets username
+        char *password = strtok(buffer, "");  // gets password
+        if (username_validation(username) != USER_EXISTS) {
+            create_user(username, password); // creates a user if the user does not exist
         } else {
-            int thread_index = -1;
-            for (int i = 0; i < length; i++) {
-                if (threads[i] == 0) {
-                    thread_index = i;
-                    break;
-                } 
-            }
-            if (thread_index == -1) {
-                thread_index = length;
-                length *= 2;
-                threads = realloc(threads, sizeof(threads) * length);
-            }
-
-            Socket_Info *info = malloc(sizeof(info));
-            info->id = thread_index;
-            info->socket = new_socket;
-            pthread_create(&threads[thread_index], NULL, 
-                    handle_player, (void*) info);
-	}
+            // validate_credentials(username, password); // validates the credentials
+        }
+    } else if (strcmp(tok,"challenge")) {  // challenge request to a player
+        // challenge_player();
+    } else if (strcmp(tok, "stats")) { // stats request
+        // send_stats(); 
+    } else if (strcmp(tok, "logout")) { // logout
+        // logout();
+    } else {
+        // unknown_request(); 
     }
-    return 0; 
-} 
 
+    return 1;
+}
+
+
+/// main - entry point into the program
+///
+/// returns:          error code
+int main() {
+    int len, rc, on = 1;
+    int listen_sd = -1, new_sd = -1;
+
+    int end_server = FALSE, compress_array = FALSE;
+    int close_conn;
+    char buffer[MAX_BUFFER];
+    struct sockaddr_in6 addr;
+    int timeout;
+    struct pollfd fds[MAX_FILES];
+    int nfds=1, current_size = 0, i, j;
+
+    listen_sd = socket(AF_INET6, SOCK_STREAM, 0);
+    if (listen_sd < 0) {
+        perror("Socket creation failed.");
+        return 1;
+    }
+
+    // sets up socket options
+    rc = setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, 
+            (char*)&on, sizeof(on));
+
+    if (rc < 0) {
+        perror("Setsockopt() failed.");
+        close(listen_sd);
+        return 1;
+    }
+
+    // sets listen_sd to not be blocking
+    rc = ioctl(listen_sd, FIONBIO, (char*)&on);
+
+    if (rc < 0) {
+        perror("ioctl() failed.");
+        close(listen_sd);
+        return 1;
+    }
+
+    addr.sin6_family = AF_INET6;
+    memcpy(&addr.sin6_addr, &in6addr_any, sizeof(in6addr_any));
+    addr.sin6_port = htons(PORT);
+
+    // binds the listening socket to the address
+    rc = bind(listen_sd, (struct sockaddr*)&addr, sizeof(addr)); 
+
+    if (rc < 0) {
+        perror("Bind() failed.");
+        close(listen_sd);
+        return 1;
+    }
+
+    rc = listen(listen_sd, 32);  // Sets up listening
+    if (rc < 0) {
+        perror("Listen failed.");
+        close(listen_sd);
+        return 1;
+    }
+
+    memset(fds, 0, sizeof(fds));
+
+    fds[0].fd = listen_sd;      // Listens for new connections 
+    fds[0].events = POLLIN;
+
+    timeout = -1; // Indefinetly polling
+
+    // Now you can poll
+    printf("Chess Server started up and created socket on port %d and is"
+            " accepting new connections.\n", PORT);
+    fflush(stdout);
+
+    // Now the server loop 
+    do {
+
+        // polls the file descriptors for any changes
+        rc = poll(fds, nfds, timeout);
+        if (rc < 0) {
+            perror("Polling failed.");
+            break;
+        }
+
+        // decorative because it won't time out 
+        if (rc == 0) {
+            printf("Poll() timed out.\n");
+            break;
+        }
+
+        // keeps track of current file descriptors
+        current_size = nfds;
+        for (i = 0; i < current_size; i++) {
+            if (fds[i].revents == 0) continue;
+            if (fds[i].revents != POLLIN) {
+                printf("Error! Revents = %d\n", fds[i].revents);
+                end_server = TRUE;
+                break;
+            }
+
+            // Listening socket is readable so that means clients are connecting.
+            if (fds[i].fd == listen_sd) {
+                printf("A new client is connecting to the server.\n");
+                do {
+                    new_sd = accept(listen_sd, NULL, NULL);
+                    if (new_sd < 0) {
+                        if (errno != EWOULDBLOCK) {
+                            perror("Accept() failed.");
+                            end_server = TRUE;
+                        }
+                        break;
+                    }
+
+                    // handles adding the new file descriptor and polling it
+                    printf("New incoming connection to server - %d\n", new_sd);
+                    fds[nfds].fd = new_sd;
+                    fds[nfds].events = POLLIN;
+                    nfds++;
+                } while (new_sd != -1);
+            }
+
+            else {
+                printf("Descripter %d is readable\n", fds[i].fd);
+                close_conn = FALSE;
+
+                do {
+                    // gets whatver is in the socket from the client
+                    rc = recv(fds[i].fd, buffer, sizeof(buffer), 0);
+                    if (rc < 0) {
+                        if (errno != EWOULDBLOCK) {
+                            perror("recv() failed.");
+                            close_conn = TRUE;
+                        }
+                        break;
+                    }
+                    if (rc == 0) {
+                        printf("Connection closed.");
+                        close_conn = TRUE;
+                        break;
+                    }
+
+                    len = rc;
+                    printf("%d bytes recieved\n", len);
+                    
+                    handle_request(fds[i].fd, buffer);
+
+                    // sends back whatever was recieved
+                    rc = send(fds[i].fd, buffer, len, 0);
+                    if (rc < 0) {
+                        perror("send() failed.");
+                        close_conn = TRUE;
+                        break;
+                    }
+                } while (TRUE);
+
+                if (close_conn) {
+                    close(fds[i].fd);
+                    fds[i].fd = -1;
+                    compress_array = TRUE;
+                }
+            }
+        }
+
+        if (compress_array) {
+            compress_array = FALSE;
+            for (i = 0; i < nfds; i++) {
+                if (fds[i].fd == -1) {
+                    for (j = i; j < nfds; j++) {
+                        fds[j].fd = fds[j+1].fd;
+                    }
+                    i--;
+                    nfds--;
+                }
+            }
+        }
+    } while (end_server == FALSE);
+
+    for (i = 0; i < nfds; i++) {
+        if (fds[i].fd >= 0) close(fds[i].fd);
+    }
+
+}
