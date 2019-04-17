@@ -17,10 +17,11 @@
 #include <unistd.h>
 
 #include "chess_network.h"
+#include "chess_engine.h"
 
 #define HOST_SIZE 60
 #define MIN_SIZE_SCREEN 100
-#define RESIZE_SCREEN = "Your screen needs to be atleast 40x40." \
+#define RESIZE_SCREEN = "Your screen needs to be atleast 100x100." \
                         "Press Enter to End"
 
 
@@ -36,6 +37,12 @@
 
 #define FAILED_LOGIN -5
 
+#define LOCAL_GAME = 0
+#define ONLINE_GAME = 1
+#define AI_GAME = 2
+
+#define COORDINATE_MAX 5
+
 /// handle_sigint - handles the signal for interrupt
 /// sig - the number of the signal
 //void handle_sigint(int sig) {     
@@ -44,6 +51,7 @@
 //    id_t iPid = getpid();
 //    kill(iPid, SIGINT);
 //}
+
 
 
 /// clear_row - clears the specified row
@@ -61,10 +69,144 @@ static inline void clear_row(int row) {
 /// startx - the start x of the window
 WINDOW *create_newwin(int height, int width, int starty, int startx) {	 
     WINDOW *local_win;
-	local_win = newwin(height, width, starty, startx);
-	wrefresh(local_win);		
-	return local_win;
+	  local_win = newwin(height, width, starty, startx);
+	  wrefresh(local_win);		
+	  return local_win;
 }
+
+
+/// print_board - prints the board
+/// arguments:    board - the pointer to the board
+///
+/// return:       NONE
+static void print_board(Chess_Board *board) {
+
+    char *label = "****      BOARD      ****";
+    mvprintw(4, BOARD_START + 3, "%s", label);  // board numbers and label
+
+    char *numbers = "1   2   3   4   5   6   7   8\n";
+    char *border = "+-------------------------------+";
+    char bar = '|';
+
+    char letters[8] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
+    mvprintw(5, BOARD_START + 4, "%s", numbers);  // PRINT NUMBERS
+    mvprintw(6, BOARD_START + 2, "%s", border);
+
+    Pieces *pieces;
+    for (int i = 7; i >=0; i--) { // loops through board to print
+        mvprintw(21-2*i, BOARD_START, "%c", letters[7-i]);
+        printw("%c", ' ');
+        for (int j = 0; i < 8; j++) {
+            int index = INDEX(j-1, i);
+            printw("%c", bar);
+            printw("%c", ' ');
+
+            // if piece exists then we gotta print that
+            int p1 = CHECK_BIT(board->p1_pieces->full_board, index);
+            int p2 = CHECK_BIT(board->p2_pieces->full_board, index);
+
+            if (p1) {
+                attron(COLOR_PAIR(1));
+                pieces = board->p1_pieces;
+            } else if (p2) {
+                attron(COLOR_PAIR(2));
+                pieces = board->p2_pieces;
+            } else {
+                pieces = NULL;
+            }
+
+            // prints the piece and its respective symbol
+            if (pieces) {
+                if (CHECK_BIT(pieces->pawns, index)) printw("%c", PAWN_PIECE);
+                else if (CHECK_BIT(pieces->rooks, index)) printw("%c", ROOK_PIECE);
+                else if (CHECK_BIT(pieces->knights, index)) printw("%c", KNIGHT_PIECE);
+                else if (CHECK_BIT(pieces->bishops, index)) printw("%c", BISHOP_PIECE);
+                else if (CHECK_BIT(pieces->queen, index)) printw("%c", QUEEN_PIECE);
+                else if (CHECK_BIT(pieces->king, index)) printw("%c", KING_PIECE);
+            } else {
+                printw("%c", ' ');
+            }
+
+            // turns off color
+            if (p1) attroff(COLOR_PAIR(1));
+            else if (p2) attroff(COLOR_PAIR(2));
+
+            printw("%c", ' ');
+        }
+
+        // finishes the right print of the board
+        printw("%c", bar);
+        printw("%c", ' ');
+        printw("%c", letters[7-i]);
+        mvprintw(21-2*i-1, BOARD_START + 2, "%s", border);
+    }
+
+    // finishes the board print
+    mvprintw(21-2*-1-1, BOARD_START + 2, "%s", border);
+    mvprintw(21-2*-2-2, BOARD_START + 4, "%s", numbers);
+}
+
+
+/// validate_input - valides the input from the user
+/// arguments:     player - player number
+///                buffer - input buffer
+///                board - pointer to the board
+///
+/// returns:       piece_id
+static int validate_input(short player, char buffer[COORDINATE_MAX], Chess_Board *board) {
+
+    return -1;
+
+}
+
+
+/// local_game_loop - simulates a game when the player wants to locally play
+/// arguments:     NONE
+///
+/// returns:       NONE
+static void local_game_loop() {
+    init_pair(1, COLOR_RED, COLOR_BLACK);
+    init_pair(2, COLOR_BLUE, COLOR_BLACK);
+
+    attron(A_BOLD);
+
+    Chess_Game *game = create_chess_game();
+
+    short piece_t;
+    Coordinate cord;
+
+    char buffer[COORDINATE_MAX] = {0};
+    int game_status = 1;
+    while (game_status) {
+        attron(COLOR_PAIR(1));
+        mvprintw(1, 1, "%s", "Local Game!");
+        attroff(COLOR_PAIR(2));
+
+        print_board(game->board);
+        // PLAYER 1 MOVE
+        do {
+            mvprintw(20, BOARD_START, "%s", "Player 1 Move ([Letter][Number],[Letter][Number]):");
+            getnstr(buffer, COORDINATE_MAX);
+        
+        } while ((piece_t = validate_input(PLAYER_ONE, buffer, game->board)) < 0);
+
+        move_piece(PLAYER_ONE, piece_t, game->board, cord);
+        print_board(game->board);
+
+        // PLAYER 2 MOVE
+        do {
+            mvprintw(20, BOARD_START, "%s", "Player 2 Move ([Letter][Number], [Letter][Number]):");
+            getnstr(buffer, COORDINATE_MAX);
+        } while ((piece_t = validate_input(PLAYER_TWO, buffer, game->board)) < 0);
+
+        move_piece(PLAYER_TWO, piece_t, game->board, cord);
+        print_board(game->board);
+
+        game_status = 0;
+    }
+
+    end_game(game);
+} 
 
 
 /// host_query - asks user for a hostname and port
@@ -91,7 +233,7 @@ static char *host_query(int row, int col, int error) {
         refresh();
         attroff(COLOR_PAIR(1));
     }
-i    
+
     mvprintw(1, (col-strlen(welcome))/2, "%s", welcome);
     clear_row(row/2);
 
@@ -236,7 +378,6 @@ int login_server(int socket, int row, int col) {
     return 1;
 }
 
-
 /// main - starting point of program and handles initializing ncurses 
 ///        and calling functions
 int main() {
@@ -270,10 +411,13 @@ int main() {
     }
 
     start_color(); // allows color for ncurses
-    int socket = connect_to_server(row, col); 
-    //handle_server(socket, row, col);
-    login_server(socket, row, col);
-
+    if (1) {
+        local_game_loop();    
+    } else {
+        int socket = connect_to_server(row, col); 
+        //handle_server(socket, row, col);
+        login_server(socket, row, col);
+    }
     refresh();
     endwin();
 
