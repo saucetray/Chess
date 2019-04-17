@@ -1,4 +1,4 @@
-///;;
+///
 /// chess.c
 /// client program main to handle the chess game
 /// Author: Justin Sostre
@@ -19,7 +19,7 @@
 #include "chess_network.h"
 
 #define HOST_SIZE 60
-#define MIN_SIZE_SCREEN 40
+#define MIN_SIZE_SCREEN 100
 #define RESIZE_SCREEN = "Your screen needs to be atleast 40x40." \
                         "Press Enter to End"
 
@@ -91,7 +91,7 @@ static char *host_query(int row, int col, int error) {
         refresh();
         attroff(COLOR_PAIR(1));
     }
-    
+i    
     mvprintw(1, (col-strlen(welcome))/2, "%s", welcome);
     clear_row(row/2);
 
