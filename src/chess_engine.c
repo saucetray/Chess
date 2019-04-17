@@ -13,58 +13,18 @@
 
 #include "chess_engine.h"
 
-#define PAWNS       0xFFULL
-#define ROOKS       0x81ULL
-#define KNIGHTS     0x42ULL
-#define BISHOPS     0x24ULL
-#define QUEENS      0x10ULL
-#define KINGS       0x8ULL
-#define FULL_BOARD  0xFFFFULL
-
-#define PAWN_OFFSET 8
-#define BLACK_OFFSET 56
-
-#define CHESS_HEIGHT 8
-
-#define TOGGLE_BIT(board, n) board ^= 1ULL << n
-#define SET_BIT(board, n) board |= 1ULL << n
-#define CLEAR_BIT(board, n) board &= ~(1ULL << n)
-#define CHECK_BIT(board, n) ((board >> n) & 1ULL)
-#define INDEX(x, y) ((y)*CHESS_HEIGHT+(8-x))
-
-#define PAWN    0
-#define ROOK    1
-#define KNIGHT  2
-#define BISHOP  3
-#define QUEEN   4
-#define KING    5
-
-#define PAWN_PIECE    'P'
-#define ROOK_PIECE    'R'
-#define KNIGHT_PIECE  'N'
-#define BISHOP_PIECE  'B'
-#define QUEEN_PIECE   'Q'
-#define KING_PIECE    'K'
-
-#define INFO_START 70
-#define BOARD_START 20
-
-#define PLAYER_ONE 1
-#define PLAYER_TWO 2
-
 
 /// end_game - ends the game and deallocates memory
 /// arguments:     chess_game - pointer to chess_game
 ///
 /// returns:       NONE
-//static void end_game(Chess_Game *chess_game) {
-//
-//    free(chess_game->board->p1_pieces);
-//    free(chess_game->board->p2_pieces);
-//    free(chess_game->board);
-//    free(chess_game);
-//
-//}
+void end_game(Chess_Game *chess_game) {
+    free(chess_game->board->p1_pieces);
+    free(chess_game->board->p2_pieces);
+    free(chess_game->board);
+    free(chess_game);
+
+}
 
 
 /// capture_piece - removes the piece from its respective board
@@ -421,74 +381,6 @@ static void test_print_board(bitboard board) {
 }
 
 
-void print_board(Chess_Board *board) {
-
-    char *label = "*****       BOARD       *****";
-    mvprintw(4, BOARD_START + 4, "%s", label);
-
-    char *numbers = "1   2   3   4   5   6   7   8\n";
-    char *border = "---------------------------------";
-    char bar = '|';
-    
-    char letters[8] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'}; // labels for rows
-    mvprintw(5, BOARD_START + 4, "%s", numbers);
-    mvprintw(6, BOARD_START + 2, "%s", border);
-
-    Pieces *pieces;
-
-    start_color();
-
-    init_pair(1, COLOR_RED, COLOR_BLACK); // inits colors for the board
-    init_pair(2, COLOR_BLUE, COLOR_BLACK);
-
-    for (int i = 7; i >= 0; i--) {
-        mvprintw(21-2*i, BOARD_START, "%c", letters[7-i]);
-        printw("%c", ' ');
-        for (int j = 0; j < 8; j++) {   // some indexing for the board to print
-            int index = INDEX(j-1, i);
-            printw("%c", bar);
-            printw("%c", ' ');
-           
-            int p1 = CHECK_BIT(board->p1_pieces->full_board, index); // checks if piece
-            int p2 = CHECK_BIT(board->p2_pieces->full_board, index); // exits
-
-            if (p1) {
-                attron(COLOR_PAIR(1));            
-                pieces = board->p1_pieces;
-            } else if (p2) {
-                attron(COLOR_PAIR(2)); 
-                pieces = board->p2_pieces;
-            } else {
-                pieces = NULL;
-            }
-
-            if (pieces) { // handles printing the piece if it exists
-                if (CHECK_BIT(pieces->pawns, index)) printw("%c", PAWN_PIECE);
-                else if (CHECK_BIT(pieces->rooks, index)) printw("%c", ROOK_PIECE);
-                else if (CHECK_BIT(pieces->knights, index)) printw("%c", KNIGHT_PIECE);
-                else if (CHECK_BIT(pieces->bishops, index)) printw("%c", BISHOP_PIECE);
-                else if (CHECK_BIT(pieces->queen, index)) printw("%c", QUEEN_PIECE);
-                else if (CHECK_BIT(pieces->king, index)) printw("%c", KING_PIECE);
-            } else {
-                printw("%c", ' ');
-            }
-
-            if (p1) attroff(COLOR_PAIR(1)); // turns off colorz!
-            else if (p2) attroff(COLOR_PAIR(2));
-
-            printw("%c", ' ');
-        }
-      printw("%c", '|');
-      printw("%c", ' ');
-      printw("%c", letters[7-i]);
-      mvprintw(21-2*i-1, BOARD_START + 2, "%s", border); // border printing
-    }
-  
-    mvprintw(21-2*-1-1, BOARD_START + 2, "%s", border);
-    mvprintw(21-2*-2-2, BOARD_START + 4, "%s", numbers);
-}
-
-
 /// print_help - prints the info page for all pieces symbols and colors
 void print_help() {
     mvprintw(10, INFO_START, "%s", "INFO PAGE");
@@ -506,30 +398,5 @@ void print_help() {
 
 int main() {
     Chess_Game *game = create_chess_game();
-    initscr();
-    print_board(game->board);
-    print_help();
-
-    getch();
-    Coordinate cord = {8, 1, 8, 3};
-
-    move_piece(PLAYER_ONE, PAWN, game->board, cord);
-    print_board(game->board);
-    getch();
-    Coordinate cord2 = {8, 0, 8, 2};
-    move_piece(PLAYER_ONE, ROOK, game->board, cord2);
-    print_board(game->board);
-    getch();
-    Coordinate cord3 = {8, 2, 7, 2};
-    move_piece(PLAYER_ONE, ROOK, game->board, cord3);
-    print_board(game->board);
-    getch();
-    Coordinate cord4 = {7, 2, 7, 6};
-    move_piece(PLAYER_ONE, ROOK, game->board, cord4);
-    print_board(game->board);
-
-    refresh();
-    getch();
-    endwin();
     return 0;
 }

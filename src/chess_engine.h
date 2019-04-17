@@ -6,6 +6,45 @@
 
 #include <stdint.h>
 
+#define PAWNS      0xFFULL
+#define ROOKS      0x81ULL
+#define KNIGHTS    0x42ULL
+#define BISHOPS    0x24ULL
+#define QUEENS     0x10ULL
+#define KINGS      0x8ULL
+#define FULL_BOARD 0xFFFFULL
+
+#define PAWN_OFFSET 8
+#define BLACK_OFFSET 56
+
+#define CHESS_HEIGHT 8
+
+#define PAWN 0
+#define ROOK 1
+#define KNIGHT 2
+#define BISHOP 3
+#define QUEEN 4
+#define KING 5
+
+#define PAWN_PIECE  'P'
+#define ROOK_PIECE  'R'
+#define KNIGHT_PIECE 'N'
+#define BISHOP_PIECE 'B'
+#define QUEEN_PIECE 'Q'
+#define KING_PIECE 'K'
+
+#define INFO_START 70
+#define BOARD_START 20
+
+#define PLAYER_ONE 1
+#define PLAYER_TWO 2
+
+#define TOGGLE_BIT(board, n) board ^= 1ULL << n
+#define SET_BIT(board, n) board |= 1ULL << n
+#define CLEAR_BIT(board, n) (board &= ~(1ULL << n))
+#define CHECK_BIT(board, n) ((board >> n) & 1ULL)
+#define INDEX(x, y) ((y)*CHESS_HEIGHT+(8-x))
+
 typedef uint64_t bitboard;
 
 
@@ -61,8 +100,8 @@ Chess_Game *create_chess_game(void);
 int move_piece(short player, short piece_t, Chess_Board *board, Coordinate cord);
 
 
-/// print_board - prints the new board with ncurses
-/// arguments:       board - the board to print
+/// end_game - frees the game struct and ends it
+/// arguments:       board - pointer to the board to free
 ///
 /// returns:         NONE
-void print_board(Chess_Board *board);
+void end_game(Chess_Game *chess_game);
