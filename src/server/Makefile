@@ -1,6 +1,6 @@
-FLAGS = -Wextra -Wall -pedantic -std=c17 -O3 -I../shared
+FLAGS = -Wextra -Wall -pedantic -std=c11 -O3 -I../shared
 
-TEST_FLAGS = -Wextra -Wall -pedantic -std=c17 -ggdb
+TEST_FLAGS = -Wextra -Wall -pedantic -std=c11 -ggdb
 
 server: chess_server.o
 	gcc -o chess_server chess_server.o $(FLAGS)

@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "chess_network.h"
-#include "protocol.h"
+#include "chess_protocol.h"
 
 int hostname_to_ip(char *hostname, char *ip) {
     struct hostent *h;

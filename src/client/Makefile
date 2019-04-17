@@ -1,4 +1,4 @@
-FLAGS = -Wextra -Wall -pedantic -std=c17 -O3 -I../shared
+FLAGS = -Wextra -Wall -pedantic -std=c11 -O3 -I../shared
 TEST_FLAGS = -Wextra -Wall -pedantic -std=c17 -ggdb -lncurses
 
 chess: chess.o chess_network.o
@@ -7,7 +7,7 @@ chess: chess.o chess_network.o
 chess.o: chess.c
 	gcc -c chess.c $(FLAGS)
 
-chess_network.o:
+chess_network.o: ../shared/chess_network.c
 	gcc -c ../shared/chess_network.c $(FLAGS)
 
 test: chessTest.o
@@ -17,4 +17,4 @@ chessTest.o: chess.c
 	gcc -c chess.c $(TEST_FLAGS)
 
 clean:
-	rm *.o chess
+	rm *.o chess *.s
