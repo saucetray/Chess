@@ -105,6 +105,69 @@ static void capture_piece(Pieces *pieces, int destination) {
 //}
 
 
+/// check_diagnal - checks diagnal for pieces in the way
+/// arguments:     fboard - full entire board
+///                cord - coordinate struct
+///
+/// returns:       true or false if there are pieces in the way
+static int check_diagnal(bitboard fboard, Coordinate cord) {
+    int x = cord.x1 - cord.x2;
+    int y = cord.y1 - cord.y2;
+
+    // CHECK IF PIECES IND DIAGNAL
+    if (x > 0 && y > 0) {
+        for (int i = cord.x1-1; i > cord.x2; i--) {
+           if (CHECK_BIT(fboard, INDEX(cord.x1-i, cord.y1-i))) return 1; 
+        }
+    } else if ( x < 0 && y < 0 ) {
+        for (int i = cord.x1+1; i < cord.x2; i++) {
+            if (CHECK_BIT(fboard, INDEX(cord.x1+i, cord.y1+i))) return 1;  
+        }
+    } else if ( x > 0 && y < 0 ) {
+        for (int i = cord.x1-1; i > cord.x2; i--) {
+            if (CHECK_BIT(fboard, INDEX(cord.x1-i, cord.y1+i))) return 1;
+        }
+    } else {
+        for (int i = cord.x1+1; i < cord.x2; i++) {
+            if (CHECK_BIT(fboard, INDEX(cord.x1+i, cord.y1-i))) return 1; 
+       }
+    }
+
+    return 0;
+}
+
+
+/// check_straight - checks if pieces are in the way of path (straight)
+/// arguments:     fboard - full entire board
+///                cord - coordinate struct
+///
+/// returns:       true or false if there are pieces in the way;
+static int check_straight(bitboard fboard, Coordinate cord) {
+    int x = cord.x1 - cord.x2;
+    int y = cord.y1 - cord.y2;
+    // CHECK IF PIECES ARE IN THE WAY SOME PIECES CAN'T JUMP OVER THINGS
+    if (x > 0) {
+        for (int i = cord.x1-1; i > cord.x2; i--) {
+            if (CHECK_BIT(fboard, INDEX(i, cord.y1))) return 1;
+        }
+    } else if (x < 0) {
+        for (int i = cord.x1+1; i < cord.x2; i++) {
+            if (CHECK_BIT(fboard, INDEX(i, cord.y1))) return 1;  
+        }
+    } else if (y > 0) {
+        for (int i = cord.y1-1; i > cord.y2; i--) {
+            if (CHECK_BIT(fboard, INDEX(cord.x1, i))) return 1;  
+        }
+    } else {
+        for (int i = cord.y1+1; i < cord.y2; i++) {
+            if (CHECK_BIT(fboard, INDEX(cord.x1, i))) return 1;
+        }
+    }
+
+    return 0;
+}
+
+
 /// validate_king - validates king movement
 /// arguments:     cord - coordinate struct
 ///
@@ -124,33 +187,39 @@ static int validate_king(Coordinate cord) {
 /// arguments:     cord - coordinate struct
 ///
 /// returns:       true or false if queen can move
-static int validate_queen(Coordinate cord) {
+static int validate_queen(Chess_Board *board, Coordinate cord) {
     int x = abs(cord.x1 - cord.x2);
     int y = abs(cord.y1 - cord.y2);
 
     // check if move is diagnal or straight
     int diagnal = ((x > 0 && y ==0) || (x == 0 && y > 0));
     int straight = ((abs(cord.x1 - cord.x2) != abs(cord.y1 - cord.y2)));
-
+    
     // can't be neither and can't be both
     if (diagnal ^ straight) return 1;
-
+    
+    bitboard fboard = board->p1_pieces->full_board | board->p2_pieces->full_board;
+    if (diagnal) check_diagnal(fboard, cord);
+    else check_straight(fboard, cord);
     return 0;
 }
 
 
 /// validate_rook - validates rook movement
-/// arguments:     cord - coordinate struct
+/// arguments:     board - pointer to the board
+///                cord - coordinate struct
 ///
 /// returns:       true or false if bishop can move
-static int validate_rook(Coordinate cord) {
-    int x = abs(cord.x1 - cord.x2);
-    int y = abs(cord.y1 - cord.y2);
+static int validate_rook(Chess_Board *board, Coordinate cord) {
+    int x = cord.x1 - cord.x2;
+    int y = cord.y1 - cord.y2;
 
     // can only go up or sideways. Not both.
-    if ((x > 0 && y == 0) || (x == 0 && y > 0)) return 1;
+    if (!(abs(x) > 0 && abs(y) == 0) && !(abs(x) == 0 && abs(y) > 0)) return 0;
 
-    return 0;
+    bitboard fboard = board->p1_pieces->full_board | board->p2_pieces->full_board;
+    if (check_straight(fboard, cord)) return 0;
+    return 1;
 }
 
 
@@ -173,8 +242,15 @@ static int validate_knight(Coordinate cord) {
 /// arguments:     cord - coordinate struct 
 ///
 /// returns:       true or false if bishop can move
-static int validate_bishop(Coordinate cord) {
-    if (abs(cord.x1 - cord.x2) != abs(cord.y1 - cord.y2)) return 0;
+static int validate_bishop(Chess_Board *board, Coordinate cord) {
+    int x = cord.x1 - cord.x2;
+    int y = cord.y1 - cord.y2;
+
+    if (abs(x) != abs(y)) return 0;
+
+    bitboard fboard = board->p1_pieces->full_board | board->p2_pieces->full_board;
+
+    if (check_diagnal(fboard, cord)) return 0;
     return 1;
 }
 
@@ -233,9 +309,9 @@ static int validate_move(short player, short piece_t, Chess_Board *board, Coordi
     switch(piece_t) {
         case PAWN: if (!validate_pawn(player, board, cord)) return 0; break;
         case KNIGHT: if (!validate_knight(cord)) return 0; break;
-        case BISHOP: if (!validate_bishop(cord)) return 0; break;
-        case ROOK:  if (!validate_rook(cord)) return 0; break;
-        case QUEEN: if (!validate_queen(cord)) return 0; break;
+        case BISHOP: if (!validate_bishop(board, cord)) return 0; break;
+        case ROOK:  if (!validate_rook(board, cord)) return 0; break;
+        case QUEEN: if (!validate_queen(board, cord)) return 0; break;
         case KING:  if (!validate_king(cord)) return 0; break;              
         default: return -1;
     }
@@ -354,7 +430,7 @@ void print_board(Chess_Board *board) {
     char *border = "---------------------------------";
     char bar = '|';
     
-    char letters[8] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
+    char letters[8] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'}; // labels for rows
     mvprintw(5, BOARD_START + 4, "%s", numbers);
     mvprintw(6, BOARD_START + 2, "%s", border);
 
@@ -362,31 +438,31 @@ void print_board(Chess_Board *board) {
 
     start_color();
 
-    init_pair(1, COLOR_RED, COLOR_BLACK);
+    init_pair(1, COLOR_RED, COLOR_BLACK); // inits colors for the board
     init_pair(2, COLOR_BLUE, COLOR_BLACK);
 
-    for (int i = 7; i > 0; i--) {
+    for (int i = 7; i >= 0; i--) {
         mvprintw(21-2*i, BOARD_START, "%c", letters[7-i]);
         printw("%c", ' ');
-        for (int j = 8; j > 0; j--) {
-            int index = INDEX(j, i);
+        for (int j = 0; j < 8; j++) {   // some indexing for the board to print
+            int index = INDEX(j-1, i);
             printw("%c", bar);
             printw("%c", ' ');
            
-            int p1 = CHECK_BIT(board->p1_pieces->full_board, index);
-            int p2 = CHECK_BIT(board->p2_pieces->full_board, index);
+            int p1 = CHECK_BIT(board->p1_pieces->full_board, index); // checks if piece
+            int p2 = CHECK_BIT(board->p2_pieces->full_board, index); // exits
 
             if (p1) {
                 attron(COLOR_PAIR(1));            
                 pieces = board->p1_pieces;
             } else if (p2) {
-                attron(COLOR_PAIR(2));
+                attron(COLOR_PAIR(2)); 
                 pieces = board->p2_pieces;
             } else {
                 pieces = NULL;
             }
 
-            if (pieces) {
+            if (pieces) { // handles printing the piece if it exists
                 if (CHECK_BIT(pieces->pawns, index)) printw("%c", PAWN_PIECE);
                 else if (CHECK_BIT(pieces->rooks, index)) printw("%c", ROOK_PIECE);
                 else if (CHECK_BIT(pieces->knights, index)) printw("%c", KNIGHT_PIECE);
@@ -397,20 +473,23 @@ void print_board(Chess_Board *board) {
                 printw("%c", ' ');
             }
 
-            if (p1) attroff(COLOR_PAIR(1));
+            if (p1) attroff(COLOR_PAIR(1)); // turns off colorz!
             else if (p2) attroff(COLOR_PAIR(2));
 
             printw("%c", ' ');
         }
       printw("%c", '|');
-      mvprintw(21-2*i-1, BOARD_START + 2, "%s", border);
+      printw("%c", ' ');
+      printw("%c", letters[7-i]);
+      mvprintw(21-2*i-1, BOARD_START + 2, "%s", border); // border printing
     }
-
+  
     mvprintw(21-2*-1-1, BOARD_START + 2, "%s", border);
     mvprintw(21-2*-2-2, BOARD_START + 4, "%s", numbers);
 }
 
 
+/// print_help - prints the info page for all pieces symbols and colors
 void print_help() {
     mvprintw(10, INFO_START, "%s", "INFO PAGE");
     mvprintw(11, INFO_START, "%s", "PLAYER ONE - RED");
@@ -431,7 +510,23 @@ int main() {
     print_board(game->board);
     print_help();
 
-    Coordinate cord = {8, 1, 8, 2};
+    getch();
+    Coordinate cord = {8, 1, 8, 3};
+
+    move_piece(PLAYER_ONE, PAWN, game->board, cord);
+    print_board(game->board);
+    getch();
+    Coordinate cord2 = {8, 0, 8, 2};
+    move_piece(PLAYER_ONE, ROOK, game->board, cord2);
+    print_board(game->board);
+    getch();
+    Coordinate cord3 = {8, 2, 7, 2};
+    move_piece(PLAYER_ONE, ROOK, game->board, cord3);
+    print_board(game->board);
+    getch();
+    Coordinate cord4 = {7, 2, 7, 6};
+    move_piece(PLAYER_ONE, ROOK, game->board, cord4);
+    print_board(game->board);
 
     refresh();
     getch();
