@@ -287,7 +287,7 @@ int move_piece(short player, short piece_t, Chess_Board *board, Coordinate cord)
     if (start == destination) return 0;
     if (!validate_move(player, piece_t, board, cord)) return 0;
 
-    Pieces *pieces;     // sets this to hold what piece location
+    Pieces *pieces = NULL;     // sets this to hold what piece location
 
     if (player == PLAYER_ONE) {
         pieces = board->p1_pieces;
@@ -302,9 +302,10 @@ int move_piece(short player, short piece_t, Chess_Board *board, Coordinate cord)
         }
     }
 
-    CLEAR_BIT(pieces->full_board, start);
-    SET_BIT(pieces->full_board, destination);
-
+    if (pieces) {
+        CLEAR_BIT(pieces->full_board, start);
+          SET_BIT(pieces->full_board, destination);
+    }
     // THIS BLOCK SETS BOARD'S RESPECTIVE BITBOARD
     if (piece_t == PAWN) {         
         CLEAR_BIT(pieces->pawns, start);
@@ -363,7 +364,7 @@ static Chess_Board *create_chess_board() {
 
 
 Chess_Game *create_chess_game() {
-    Chess_Game *game = malloc(sizeof(Chess_Game*));
+    Chess_Game *game = malloc(sizeof(Chess_Game));
     game->board = create_chess_board();
     return game;
 }
@@ -396,7 +397,3 @@ void print_help() {
 }
 
 
-int main() {
-    Chess_Game *game = create_chess_game();
-    return 0;
-}

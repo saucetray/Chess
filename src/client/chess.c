@@ -20,8 +20,8 @@
 #include "chess_engine.h"
 
 #define HOST_SIZE 60
-#define MIN_SIZE_SCREEN 100
-#define RESIZE_SCREEN = "Your screen needs to be atleast 100x100." \
+#define MIN_SIZE_SCREEN 80
+#define RESIZE_SCREEN = "Your screen needs to be atleast 80x80." \
                         "Press Enter to End"
 
 
@@ -139,6 +139,8 @@ static void print_board(Chess_Board *board) {
         printw("%c", ' ');
         printw("%c", letters[7-i]);
         mvprintw(21-2*i-1, BOARD_START + 2, "%s", border);
+
+        refresh();
     }
 
     // finishes the board print
@@ -155,7 +157,7 @@ static void print_board(Chess_Board *board) {
 /// returns:       piece_id
 static int validate_input(short player, char buffer[COORDINATE_MAX], Chess_Board *board) {
 
-    return -1;
+    return 2;
 
 }
 
@@ -176,13 +178,13 @@ static void local_game_loop() {
     Coordinate cord;
 
     char buffer[COORDINATE_MAX] = {0};
-    int game_status = 1;
+    int game_status = 0;
     while (game_status) {
         attron(COLOR_PAIR(1));
         mvprintw(1, 1, "%s", "Local Game!");
         attroff(COLOR_PAIR(2));
 
-        print_board(game->board);
+        //print_board(game->board);
         // PLAYER 1 MOVE
         do {
             mvprintw(20, BOARD_START, "%s", "Player 1 Move ([Letter][Number],[Letter][Number]):");
@@ -190,8 +192,8 @@ static void local_game_loop() {
         
         } while ((piece_t = validate_input(PLAYER_ONE, buffer, game->board)) < 0);
 
-        move_piece(PLAYER_ONE, piece_t, game->board, cord);
-        print_board(game->board);
+        //move_piece(PLAYER_ONE, piece_t, game->board, cord);
+        //print_board(game->board);
 
         // PLAYER 2 MOVE
         do {
@@ -385,14 +387,13 @@ int main() {
 
     int row, col;
     initscr();
-    raw();
 
     keypad(stdscr, TRUE);
     getmaxyx(stdscr, row, col); // gets terminal size
     
     if (row < MIN_SIZE_SCREEN || col < MIN_SIZE_SCREEN) {  // minimum size 
         attron(A_BOLD);
-        char* resize = "Your screen needs to be atleast 40x40. " \
+        char* resize = "Your screen needs to be atleast 80x80. " \
                        "Press Enter to End";
         mvprintw(row/2, (col-strlen(resize))/2, "%s", resize);
         refresh();
@@ -410,14 +411,17 @@ int main() {
         return 2;
     }
 
-    start_color(); // allows color for ncurses
-    if (1) {
-        local_game_loop();    
-    } else {
-        int socket = connect_to_server(row, col); 
-        //handle_server(socket, row, col);
-        login_server(socket, row, col);
-    }
+    Chess_Game *game = create_chess_game();
+    print_board(game->board);
+
+    //start_color(); // allows color for ncurses
+    //if (1) {
+    //    local_game_loop();    
+    //} else {
+    //    int socket = connect_to_server(row, col); 
+    //    //handle_server(socket, row, col);
+    //    login_server(socket, row, col);
+    //}
     refresh();
     endwin();
 
