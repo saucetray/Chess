@@ -20,8 +20,8 @@
 #include "chess_engine.h"
 
 #define HOST_SIZE 60
-#define MIN_SIZE_SCREEN 80
-#define RESIZE_SCREEN = "Your screen needs to be atleast 80x80." \
+#define MIN_SIZE_SCREEN 50
+#define RESIZE_SCREEN = "Your screen needs to be atleast 50x50." \
                         "Press Enter to End"
 
 
@@ -80,9 +80,8 @@ WINDOW *create_newwin(int height, int width, int starty, int startx) {
 ///
 /// return:       NONE
 static void print_board(Chess_Board *board) {
-
-    char *label = "****      BOARD      ****";
-    mvprintw(4, BOARD_START + 3, "%s", label);  // board numbers and label
+    char *label = "****     BOARD     ****";
+    mvprintw(4, BOARD_START + 7, "%s", label);  // board numbers and label
 
     char *numbers = "1   2   3   4   5   6   7   8\n";
     char *border = "+-------------------------------+";
@@ -96,7 +95,7 @@ static void print_board(Chess_Board *board) {
     for (int i = 7; i >=0; i--) { // loops through board to print
         mvprintw(21-2*i, BOARD_START, "%c", letters[7-i]);
         printw("%c", ' ');
-        for (int j = 0; i < 8; j++) {
+        for (int j = 0; j < 8; j++) {
             int index = INDEX(j-1, i);
             printw("%c", bar);
             printw("%c", ' ');
@@ -123,6 +122,7 @@ static void print_board(Chess_Board *board) {
                 else if (CHECK_BIT(pieces->bishops, index)) printw("%c", BISHOP_PIECE);
                 else if (CHECK_BIT(pieces->queen, index)) printw("%c", QUEEN_PIECE);
                 else if (CHECK_BIT(pieces->king, index)) printw("%c", KING_PIECE);
+                else printw("%c", ' ');
             } else {
                 printw("%c", ' ');
             }
@@ -139,8 +139,6 @@ static void print_board(Chess_Board *board) {
         printw("%c", ' ');
         printw("%c", letters[7-i]);
         mvprintw(21-2*i-1, BOARD_START + 2, "%s", border);
-
-        refresh();
     }
 
     // finishes the board print
@@ -150,14 +148,38 @@ static void print_board(Chess_Board *board) {
 
 
 /// validate_input - valides the input from the user
-/// arguments:     player - player number
+/// arguments:     pieces - pointer to the pieces
 ///                buffer - input buffer
 ///                board - pointer to the board
 ///
 /// returns:       piece_id
-static int validate_input(short player, char buffer[COORDINATE_MAX], Chess_Board *board) {
+static int validate_input(Pieces *pieces, char buffer[COORDINATE_MAX], Coordinate *cord) {
 
-    return 2;
+    // this is just checking bounds are in good and converting it to an int
+    int num;
+    if ((num = 'H' - buffer[0]) < 0 || num > 7) return -1;
+    cord->y1 = num;
+
+    if ((num = buffer[1] - '0') < 0 || num > 7) return -1;
+    cord->x1 = num;
+
+    if ((num ='H' - buffer[3]) < 0 || num > 7) return -1;
+    cord->y2 = num;
+
+    if ((num = buffer[4] - '0') < 0 || num > 7) return -1;
+    cord->x2 = num;
+
+    int start = INDEX(cord->x1, cord->y1);
+
+    if (!CHECK_BIT(pieces->full_board, start)) return -1;
+
+    if (CHECK_BIT(pieces->pawns, start)) return PAWN;
+    if (CHECK_BIT(pieces->rooks, start)) return ROOK;
+    if (CHECK_BIT(pieces->bishops, start)) return BISHOP;
+    if (CHECK_BIT(pieces->knights, start)) return KNIGHT;
+    if (CHECK_BIT(pieces->queen, start)) return QUEEN;
+    if (CHECK_BIT(pieces->king, start)) return KING;
+    return -1;
 
 }
 
@@ -177,34 +199,43 @@ static void local_game_loop() {
     short piece_t;
     Coordinate cord;
 
-    char buffer[COORDINATE_MAX] = {0};
-    int game_status = 0;
+    char buffer[COORDINATE_MAX];
+    int game_status = 1;
     while (game_status) {
+        memset(buffer, 0, COORDINATE_MAX);
         attron(COLOR_PAIR(1));
         mvprintw(1, 1, "%s", "Local Game!");
         attroff(COLOR_PAIR(2));
 
-        //print_board(game->board);
+        int move;
+        print_board(game->board);
         // PLAYER 1 MOVE
         do {
-            mvprintw(20, BOARD_START, "%s", "Player 1 Move ([Letter][Number],[Letter][Number]):");
-            getnstr(buffer, COORDINATE_MAX);
-        
-        } while ((piece_t = validate_input(PLAYER_ONE, buffer, game->board)) < 0);
+            clear_row(28);
+            mvprintw(28, BOARD_START, "%s", "Player 1 Move ([Letter][Number],[Letter][Number]):");
+            getstr(buffer);
 
-        //move_piece(PLAYER_ONE, piece_t, game->board, cord);
-        //print_board(game->board);
+            if ((piece_t = validate_input(game->board->p1_pieces, buffer, &cord)) >= 0)
+                move = move_piece(PLAYER_ONE, piece_t, game->board, cord);
+            else move = 0;  
+        } while (move == 0);
 
-        // PLAYER 2 MOVE
-        do {
-            mvprintw(20, BOARD_START, "%s", "Player 2 Move ([Letter][Number], [Letter][Number]):");
-            getnstr(buffer, COORDINATE_MAX);
-        } while ((piece_t = validate_input(PLAYER_TWO, buffer, game->board)) < 0);
-
-        move_piece(PLAYER_TWO, piece_t, game->board, cord);
+        move_piece(PLAYER_ONE, piece_t, game->board, cord);
         print_board(game->board);
 
-        game_status = 0;
+        memset(buffer, 0, COORDINATE_MAX);
+        // PLAYER 2 MOVE
+        do { 
+            clear_row(28);
+            mvprintw(28, BOARD_START, "%s", "Player 2 Move ([Letter][Number],[Letter][Number]):");
+            getstr(buffer);
+
+            if ((piece_t = validate_input(game->board->p2_pieces, buffer, &cord)) >= 0)
+                move = move_piece(PLAYER_TWO, piece_t, game->board, cord);
+            else move = 0;  
+        } while (move == 0);
+
+        print_board(game->board);
     }
 
     end_game(game);
@@ -388,12 +419,13 @@ int main() {
     int row, col;
     initscr();
 
+    raw();
     keypad(stdscr, TRUE);
     getmaxyx(stdscr, row, col); // gets terminal size
     
     if (row < MIN_SIZE_SCREEN || col < MIN_SIZE_SCREEN) {  // minimum size 
         attron(A_BOLD);
-        char* resize = "Your screen needs to be atleast 80x80. " \
+        char* resize = "Your screen needs to be atleast 50x50. " \
                        "Press Enter to End";
         mvprintw(row/2, (col-strlen(resize))/2, "%s", resize);
         refresh();
@@ -412,17 +444,17 @@ int main() {
     }
 
     Chess_Game *game = create_chess_game();
-    print_board(game->board);
 
-    //start_color(); // allows color for ncurses
-    //if (1) {
-    //    local_game_loop();    
-    //} else {
-    //    int socket = connect_to_server(row, col); 
-    //    //handle_server(socket, row, col);
-    //    login_server(socket, row, col);
-    //}
+    start_color(); // allows color for ncurses
+    if (1) {
+        local_game_loop();    
+    } else {
+        int socket = connect_to_server(row, col); 
+        //handle_server(socket, row, col);
+        login_server(socket, row, col);
+    }
     refresh();
+    getch();
     endwin();
 
     return 0;
