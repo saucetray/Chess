@@ -4,6 +4,9 @@
 /// AUTHOR: Justin Sostre
 ///
 
+#ifndef _CHESS_ENGINE_H
+#define _CHESS_ENGINE_H
+
 #include <stdint.h>
 
 #define PAWNS      0xFFULL
@@ -105,3 +108,5 @@ int move_piece(short player, short piece_t, Chess_Board *board, Coordinate cord)
 ///
 /// returns:         NONE
 void end_game(Chess_Game *chess_game);
+
+#endif
